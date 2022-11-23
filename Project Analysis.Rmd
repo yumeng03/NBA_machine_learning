@@ -1,0 +1,95 @@
+---
+title: "Analysis"
+output: pdf_document
+date: "2022-11-19"
+---
+
+```{r}
+library(dplyr)
+library(tidyselect)
+library(tidyverse)
+library(stats)
+library(VIM)
+library(gbm)
+library(randomForest)
+if(!require(ISLR2)) { install.packages("ISLR2", repos = "http://cran.us.r-project.org"); library("ISLR2") }
+if(!require(tree)) { install.packages("tree", repos = "http://cran.us.r-project.org"); library("tree") }
+install.packages("smotefamily")
+```
+
+```{r}
+#Train numeric
+train.rf$power <- as.numeric(train.rf$power)
+train.rf$pk_cut <- as.numeric(train.rf$pk_cut)
+train.rf$win_cut <- as.numeric(train.rf$win_cut)
+train.rf$age_cut <- as.numeric(train.rf$age_cut)
+train.rf$Center <- as.numeric(train.rf$Center)
+train.rf$Guard <- as.numeric(train.rf$Guard)
+train.rf$Forward <- as.numeric(train.rf$Forward)
+#Test numeric
+test.rf$power <- as.numeric(test.rf$power)
+test.rf$pk_cut <- as.numeric(test.rf$pk_cut)
+test.rf$win_cut <- as.numeric(test.rf$win_cut)
+test.rf$age_cut <- as.numeric(test.rf$age_cut)
+test.rf$Center <- as.numeric(test.rf$Center)
+test.rf$Guard <- as.numeric(test.rf$Guard)
+test.rf$Forward <- as.numeric(test.rf$Forward)
+```
+
+```{r}
+train.rf <- subset(train.rf[,-c(2)])
+test.rf <- subset(test.rf[,-c(2)])
+```
+
+```{r}
+train.smote <- SMOTE(train.rf[,-c(19)],train.rf$success,K = 5,dup_size = 2)
+smote.data <- train.smote$data
+smote.data$class <- as.factor(smote.data$class)
+names(smote.data)[names(smote.data)=='class'] = 'success'
+head(smote.data)
+```
+
+```{r}
+#Classes check out
+summary(smote.data$class)
+summary(subset(train.rf, success == 1))
+summary(subset(smote.data, success == 1))
+```
+
+```{r}
+experiment <- smote.data
+experiment$power <- ifelse(experiment$power > .5, 1,0)
+experiment$age_cut <- ifelse(experiment$age_cut > .5, 1,0)
+experiment$Forward <- ifelse(experiment$Forward > .5, 1,0)
+experiment$Guard <- ifelse(experiment$Guard > .5,1,0)
+experiment$Center <- ifelse(experiment$Center > .5,1,0)
+```
+
+```{r}
+set.seed(1)
+tree.success = tree(success~.-win_cut-pk_cut-WS, data=experiment)
+success_pred = predict(tree.success, test.rf, type = 'class')
+table(success_pred, test.rf$success)
+summary(tree.success)
+
+prune.success = prune.misclass(tree.success, best = 3)
+success_prune = predict(tree.success, test.rf, type = "class")
+table(success_prune, test.rf$success)
+```
+
+```{r}
+set.seed(1)
+library(randomForest)
+rf.fit <- randomForest(success ~.-pk_cut-win_cut-WS,smote.data)
+importance(rf.fit)
+rf.fit
+pre <- predict(rf.fit,test.rf)
+table(pre,test.rf$success)
+```
+
+```{r}
+set.seed(1)
+rf.exp <-randomForest(success~.-pk_cut-win_cut-WS, experiment)
+importance(rf.exp)
+rf.exp
+```

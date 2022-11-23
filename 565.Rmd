@@ -1,0 +1,165 @@
+---
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<h2 style="color:#7BAFD4">**2. Exploratory Data Analysis**</h2>
+<p style="font-size:14px"> <span style = font-family:Times New Roman>As for the Exploratory Data Analysis part, we first want to find out if there is a relation between the college player selected in the first round and their college locations. We clean up the players who do not have any college information and classify the rest of the players to the states they are located in and apply the longitude and latitude of each state to create a heat map with tableau and find out that North Carolina and California has the largest number of the college players selected in the first round, which shown in the following graph with the darkest blue color. The states that were not filled with any blue color means that there is no college player being selected in the first round from 2001 to 2010.</span></p>
+<body style="background-color:#E6F8FF;">
+\pagecolor{#E6F8FF}
+<center><img src="/Users/aubrey/Desktop/565project/collegemap.png" 
+     width="800" 
+     height="500" /></center>
+     
+<center><span style="color:grey">Figure 3.1 Map results of College players in selected in the first round from 2001 to 2010</span></center>
+
+```{r,results = FALSE}
+library(readxl)
+library(dbplyr)
+nba_training <- read_excel("NBA_training.xlsx")
+nba_testing <- read_excel("NBA_testing.xlsx")
+ncaa <- read_excel("players1.xlsx")
+names(ncaa)[names(ncaa)=='id'] = 'id'
+merged = merge(nba_training, ncaa, by = 'id', all.x = T)
+unique(merged$id)
+```
+<p style="font-size:14px"> <span style = font-family:Times New Roman>Then, we have considered that the college players selected in the first round before they played in NBA do not mean that they also played well after they came into the NBA. It is common sense that there will be some players being selected in the first round and do not have a good score in NBA, or there will be someone who was not drafted in the first round but performed amazingly in NBA,  we call them “not matched” players. We consider “matched” players to be players who performed well both in college and in the NBA and players who performed not that well in both college and NBA. In this way, we have divided the 60 players drafted by the NBA each year into four groups based on their rankings, Group 1, 2, 3, and 4. Also, we use the same method to divide 60 players by their ranking in NBA. If a player is placed in the same group both before and during the NBA draft, we call him a matched player, otherwise, he is a not matched player.</span></p>
+
+```{r,results = FALSE, message=FALSE}
+#See if there is a relationship between different positions and winshare. Guard (G), Forward (F), Center (C). (Scatterplot)
+library(tidyverse)
+Guard = subset(nba_training,Pos =="G"|Pos =="G-F"|Pos =="G-C")
+Guard$Pos = "G"
+Guard
+
+Forward = subset(nba_training,Pos =="F"|Pos =="F-G"|Pos =="F-C")
+Forward$Pos = "F"
+Forward
+
+Center = subset(nba_training, Pos == "C"|Pos =="C-F"|Pos == "C-G")
+Center$Pos = "C"
+Center
+
+name_list = rbind.data.frame(Guard,Forward, by = NULL)
+name_list = rbind.data.frame(name_list,Center, by = NULL)
+name_list
+```
+```{r}
+#Determine how the teams drafted, by position
+f_int <- Forward %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1")))
+names(f_int)[37] <- c("pk_cut")
+names(f_int)[38] <- c("win_cut")
+
+f_match <- f_int %>%
+  mutate(matched = case_when(pk_cut == win_cut ~ "matched",
+                             pk_cut != win_cut ~ "not matched"))
+
+g_int <- Guard %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("1","2","3","4")))
+names(g_int)[37] <- c("pk_cut")
+names(g_int)[38] <- c("win_cut")
+
+g_match <- g_int %>%
+  mutate(matched = case_when(pk_cut == win_cut ~ "matched",
+                             pk_cut != win_cut ~ "not matched"))
+
+c_int <- Center %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("1","2","3","4")))
+names(c_int)[37] <- c("pk_cut")
+names(c_int)[38] <- c("win_cut")
+
+c_match <- c_int %>%
+  mutate(matched = case_when(pk_cut == win_cut ~ "matched",
+                             pk_cut != win_cut ~ "not matched"))
+```
+
+```{r,results = FALSE}
+library(ggplot2)
+combined0 <- rbind(c_match,g_match)
+combined <- rbind(combined0, f_match)
+combined
+```
+<p style="font-size:14px"> <span style = font-family:Times New Roman>Here we apply ggplot() to generate a scatterplot to see whether the players are matched or not matched. We colored them differently.</span></p>
+```{r,warning=FALSE, fig.show='hide'}
+library(ggplot2)
+library(dplyr)
+
+matched = subset(combined, matched == "matched")
+not_matched = subset(combined, matched == "not matched"|is.na(matched))
+
+# assign 0 to NULL
+i = 1
+while (i < 645 ){
+  if (is.na(combined$matched[i])){
+  combined$matched[i] = "not matched"
+  }
+  i = i+1
+}
+
+ggplot(combined, aes(x=Pk, y=WS,color = matched))+geom_point()
+```
+<center><img src="/Users/aubrey/Desktop/565project/scatterplot.png" 
+     width="700" 
+     height="420" /></center>
+<center><span style="color:grey">Figure 3.2 Matched players vs. Not Matched players by Scatterplot</span></center>
+
+<p style="font-size:14px"> <span style = font-family:Times New Roman>From the Scatterplot, we find that there are only a few matched players among the 10 years, and it proves that the NBA teams aren't perfect when it comes to drafting college players. Only a few players played at the same caliber as what their pick in the draft should reflect.</span></p>
+
+<p style="font-size:14px"> <span style = font-family:Times New Roman>This leads us to think about the True Negative and False Positive Rate, and we created a confusion matric as shown. We named Positive prediction but the players actually perform bad as sadly disappointed one, which with a rate of 0.384858, and the players who was given Negative prediction but actually perform good is called surprisingly good with the rate of 0.4237805.</span></p>
+
+```{r,results = FALSE}
+# False Positive: rank a player in group 3 & 4, but his win share is in group 1 & 2.
+False = subset(combined,pk_cut == 3|pk_cut == 4)
+nrow(False)
+Positive = subset(False, win_cut == 1| win_cut == 2)
+nrow(Positive)
+False_positive_rate = 122/317
+False_positive_rate
+
+# True Negative: rank a player in group 1 & 2, but his win share is in group 3 & 4.
+True = subset(combined,pk_cut == 1|pk_cut == 2)
+nrow(True)
+Negative = subset(True, win_cut == 3| win_cut == 4)
+nrow(Negative)
+True_negative_rate = 139/328
+True_negative_rate
+
+```
+
+<center><img src="/Users/aubrey/Desktop/565project/confusionmatrix.png" 
+     width="500" 
+     height="500" /></center>
+     
+<center><span style="color:grey">Figure 3.3 FP and TN Rate Table</span></center>
+
+<p style="font-size:14px"> <span style = font-family:Times New Roman>Both “Sadly Disappointed” and “Surprisingly Good” take around 40% share, proving once again that the NBA is not very accurate when it comes to drafting players. </span></p>
+
+<p style="font-size:14px"> <span style = font-family:Times New Roman> Of course, for this low accuracy, we took into account whether the players' position affected their win share. A player who plays "Center" Position may generally receive a lower win share than players who play as "Guard" and "Forward". In order to double check if there is a difference in win share due to the locations, we made a Boxplot to see the mean, median and 25th and 75th percentile of the players in different groups of position. We generate three subset of the training set, by classifying the players' positions.</span></p>
+
+
+```{r,warning=FALSE,fig.show='hide'}
+# relation between ws and position
+box_plot_crop<-ggplot(data=combined, aes(y = combined$WS, x= combined$Pos)) 
+box_plot_crop+ geom_boxplot(outlier.shape = NA) +
+  coord_cartesian(ylim =  c(-5, 35))
+```
+<center><img src="/Users/aubrey/Desktop/565project/boxplot.png" 
+     width="700" 
+     height="420" /></center>
+     
+<center><span style="color:grey">Figure 3.4 Boxplot of the players in three different position groups: Center, Forward, Guard respectively</span></center>
+
+<p style="font-size:14px"> <span style = font-family:Times New Roman> From the Boxplot, it is obvious that the median win share of a Center Position player is lower than that of a Forward player and Guard player, while the Guard players and Forward player's median is quite similar to each other, but Guard player's 75th percentile is slightly higher than that of Forward player.</span></p>

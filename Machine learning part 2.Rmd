@@ -1,0 +1,385 @@
+---
+title: 'Pain : )'
+output: html_document
+date: "2022-11-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readxl)
+library(dbplyr)
+college0 <- read.csv("cbb21.csv")
+college<- college0[,1:2]
+
+college$TEAM <- str_replace(college$TEAM, 'St.', 'State')
+college[348,] = c("Stanford", "P12")
+college[349,] = c("Texas-El Paso", "CUSA")
+college$TEAM[college$TEAM == 'North Carolina'] = 'UNC'
+college$TEAM[college$TEAM == 'North Carolina State'] = 'NC State'
+college$TEAM[college$TEAM == 'North Texas'] = 'University of North Texas'
+college$TEAM[college$TEAM == 'Miami FL'] = 'Miami (FL)'
+college$TEAM[college$TEAM == 'Pittsburgh'] = 'Pitt'
+college$TEAM[college$TEAM == 'Connecticut'] = 'UConn'
+college$TEAM[college$TEAM == 'Tennessee Tech'] = 'Tennessee Technological University'
+college$TEAM[college$TEAM == 'State Bonaventure'] = 'St. Bonaventure'
+college$TEAM[college$TEAM == 'Morehead State'] = 'Morehead State University'
+college$TEAM[college$TEAM == "State John's"] = "St. John's"
+college$TEAM[college$TEAM == 'Cleveland State'] = 'Cleveland State University'
+college$TEAM[college$TEAM == 'Louisiana Lafayette'] = 'Louisiana'
+college$TEAM[college$TEAM == 'Detroit'] = 'Detroit Mercy'
+college$TEAM[college$TEAM == 'Georgia State'] = 'Georgia State University'
+college$TEAM[college$TEAM == 'Ohio'] = 'Ohio University'
+college$TEAM[college$TEAM == 'Central Michigan'] = 'Central Michigan University'
+college$TEAM[college$TEAM == 'Central Connecticut'] = 'Central Connecticut State University'
+college$TEAM[college$TEAM == 'Northern Arizona'] = 'Northern Arizona University'
+college$TEAM[college$TEAM == 'Rutgers'] = "Rutgers University"
+college$TEAM[college$TEAM == 'Rider'] = 'Rider University'
+college$TEAM[college$TEAM == 'UCF'] = 'Central Florida'
+college$TEAM[college$TEAM == 'Mississippi'] = 'Ole Miss'
+college$TEAM[college$TEAM == 'Western Carolina'] = 'Western Carolina University'
+college$TEAM[college$TEAM == 'Tennessee Martin'] = 'University of Tennessee at Martin'
+college$TEAM[college$TEAM == 'Manhattan'] = 'Manhattan College'
+college$TEAM[college$TEAM == 'Rice'] = 'Rice University'
+college$TEAM[college$TEAM == 'Charlotte'] = 'UNC Charlotte'
+college$TEAM[college$TEAM == 'Austin Peay'] = 'Austin Peay State University'
+
+names(college)[names(college)=='TEAM'] = 'College'
+
+nba_training0 <- read_excel("NBA_training.xlsx")
+nba_training<- merge(nba_training0, college, by = "College", all.x = T)
+nba_testing0 <- read_excel("NBA_testing.xlsx")
+nba_testing <- merge(nba_testing0, college, by = "College", all.x = T)
+
+nba_training <- nba_training[c(-524, -560, -561),]
+ncaa <- read_excel("players fixed.xlsx")
+ncaa = ncaa[,c(-1)]
+
+names(ncaa)[names(ncaa)=='name'] = 'Player'
+merged_train = merge(nba_training, ncaa, by = 'Player', all.x = T)
+merged_test = merge(nba_testing, ncaa, by = 'Player', all.x = T)
+```
+
+```{r}
+merged_train = merged_train[,c(-30,-31, -39, -28, -32, -33)]
+merged_train = merged_train[c(-140, -215, -146, -335, -434,-382,-407,-48,-404, -477),]
+
+merged_train$WS[is.na(merged_train$WS)]=0
+merged_test$WS[is.na(merged_test$WS)]=0
+
+merged_test = merged_test[,c(-30,-31, -38, -28, -32, -33)]
+merged_test = merged_test[c(-100, -282,-98,-278,-182),]
+merged_test$WS[is.na(merged_test$WS)]=0
+```
+
+```{r}
+merged_train$international = ifelse(merged_train$Born!='us', 1,0)
+merged_test$international = ifelse(merged_test$Born!='us', 1,0)
+
+merged_train$College[is.na(merged_train$College)] = 0
+
+merged_train$played_in_col = 1
+merged_test$played_in_col = 1
+
+i = 1
+while (i < 650) {
+  if(merged_train$College[i] == 0 && merged_train$international[i] == 1) {
+  merged_train$College[i] = "International"
+  merged_train$played_in_col[i] = 0
+  } else if (merged_train$College[i] == 0 && merged_train$international[i] == 0) {
+    merged_train$College[i] = "HS"
+    merged_train$played_in_col[i] = 0
+  }
+  i = i+1
+}
+
+merged_test$College[is.na(merged_test$College)] = 0
+
+j=1
+while(j <301) {
+  if(merged_test$College[j] == 0 && merged_test$international[j] == 1) {
+  merged_test$College[j] = "International"
+  merged_test$played_in_col[j] = 0
+  } else if (merged_test$College[j] == 0 && merged_test$international[j] == 0) {
+    merged_test$College[j] = "HS"
+    merged_test$played_in_col[j] = 0
+  }
+  j=j+1
+}
+```
+
+
+```{r}
+i = 1
+while (i < 650) {
+  if(is.na(merged_train$MP[i])) {
+  merged_train$From[i] = merged_train$Year[i]
+  merged_train$To[i] = merged_train$Year[i]
+  merged_train$G[i] = 0
+  merged_train$MP[i] = 0
+  merged_train$PTS[i] = 0
+  merged_train$TRB[i] = 0
+  merged_train$AST[i] = 0
+  merged_train$STL[i] = 0
+  merged_train$BLK[i] = 0
+  merged_train$FG.[i] = 0
+  merged_train$X2P.[i] = 0
+  merged_train$X3P.[i] = 0
+  merged_train$FT.[i] = 0
+  merged_train$WS[i] = 0
+  merged_train$WS.48[i] = 0
+  }
+  i = i + 1
+}
+```
+
+```{r}
+i = 1
+while (i < 301) {
+  if(is.na(merged_test$MP[i])) {
+  merged_test$From[i] = merged_test$Year[i]
+  merged_test$To[i] = merged_test$Year[i]
+  merged_test$G[i] = 0
+  merged_test$MP[i] = 0
+  merged_test$PTS[i] = 0
+  merged_test$TRB[i] = 0
+  merged_test$AST[i] = 0
+  merged_test$STL[i] = 0
+  merged_test$BLK[i] = 0
+  merged_test$FG.[i] = 0
+  merged_test$X2P.[i] = 0
+  merged_test$X3P.[i] = 0
+  merged_test$FT.[i] = 0
+  merged_test$WS[i] = 0
+  merged_test$WS.48[i] = 0
+  }
+  i = i + 1
+}
+```
+
+```{r}
+merged_train = subset(merged_train, G !=0)
+merged_test = subset(merged_test, G !=0)
+```
+
+```{r}
+domestic_college_train = subset(merged_train, merged_train$played_in_col == 1)
+domestic_college_train=subset(domestic_college_train, is.na(domestic_college_train$NCAA_games) == F)
+
+domestic_college_test =  subset(merged_test, merged_test$played_in_col == 1)
+domestic_college_test = subset(domestic_college_test, is.na(domestic_college_test$NCAA_games) == F)
+```
+
+```{r}
+na = domestic_college_train[,32:45]
+na[is.na(na)] = 0
+
+na_test = domestic_college_test[,32:45]
+na_test[is.na(na_test)] = 0
+
+domestic_college_train = cbind(domestic_college_train[,-c(32:47)], na)
+domestic_college_test = cbind(domestic_college_test[,-c(32:47)], na_test)
+
+power.conf <- c("ACC", "B10", "B12", "SEC", "P12")
+domestic_college_train$power <- c(rep(0,406))
+domestic_college_test$power <- c(rep(0,215))
+
+w = 1
+o = 1
+while(w < 407) {
+  while(o < 6) {
+    if(domestic_college_train$CONF[w] == power.conf[o]){
+      domestic_college_train$power[w] = 1
+    } 
+    o = o+1
+  }
+  w = w+1
+}
+
+w = 1
+o = 1
+while(w < 216) {
+  while(o < 6) {
+    if(domestic_college_test$CONF[w] == power.conf[o]){
+      domestic_college_test$power[w] = 1
+    } 
+    o = o+1
+  }
+  w = w+1
+}
+``` 
+
+```{r}
+#random tree
+set.seed(1)
+
+train_0 = domestic_college_train[31:46]
+train <- cbind(train_0,domestic_college_train[,26])
+names(train)[names(train)=='domestic_college_train[, 26]'] = 'WS'
+test_0 = domestic_college_test[31:46]
+test <- cbind(test_0,domestic_college_test[,26])
+names(test)[names(test)=='domestic_college_test[, 26]'] = 'WS'
+
+rf.fit <- lm (WS ~ NCAA_games + NCAA_ppg, data = train)
+rf.fit
+summary(rf.fit)
+```
+
+```{r}
+# split the dataset by player's position
+Guard_train = subset(domestic_college_train,Pos =="G"|Pos =="G-F"|Pos =="G-C")
+Guard_train$Pos = "G"
+
+Guard_test = subset(domestic_college_test,Pos =="G"|Pos =="G-F"|Pos =="G-C")
+Guard_test$Pos = "G"
+
+Forward_train = subset(domestic_college_train,Pos =="F"|Pos =="F-G"|Pos =="F-C")
+Forward_train$Pos = "F"
+
+Forward_test = subset(domestic_college_test,Pos =="F"|Pos =="F-G"|Pos =="F-C")
+Forward_test$Pos = "F"
+
+Center_train = subset(domestic_college_train, Pos == "C"|Pos =="C-F"|Pos == "C-G")
+Center_train$Pos = "C"
+
+Center_test = subset(domestic_college_test, Pos == "C"|Pos =="C-F"|Pos == "C-G")
+Center_test$Pos = "C"
+
+# split the dataset with by player's rank in NBA into 4 groups, 1 is the best group.
+library(tidyverse)
+f_int_train<- Forward_train %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1"))) %>%
+  mutate(age_cut <- ifelse(Age>21,1,0))
+names(f_int_train)[47] <- c("pk_cut")
+names(f_int_train)[48] <- c("win_cut")
+names(f_int_train)[49] <- c("age_cut")
+
+f_int_test<- Forward_test %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1"))) %>%
+  mutate(age_cut <- ifelse(Age>21,1,0))
+names(f_int_test)[47] <- c("pk_cut")
+names(f_int_test)[48] <- c("win_cut")
+names(f_int_test)[49] <- c("age_cut")
+
+g_int_train <- Guard_train %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1"))) %>%
+  mutate(age_cut <- ifelse(Age>21,1,0))
+names(g_int_train)[47] <- c("pk_cut")
+names(g_int_train)[48] <- c("win_cut")
+names(g_int_train)[49] <- c("age_cut")
+
+g_int_test <- Guard_test %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1"))) %>%
+  mutate(age_cut <- ifelse(Age>21,1,0))
+names(g_int_test)[47] <- c("pk_cut")
+names(g_int_test)[48] <- c("win_cut")
+names(g_int_test)[49] <- c("age_cut")
+
+c_int_train <- Center_train %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1"))) %>%
+  mutate(age_cut <- ifelse(Age > 21,1,0))
+names(c_int_train)[47] <- c("pk_cut")
+names(c_int_train)[48] <- c("win_cut")
+names(c_int_train)[49] <- c("age_cut")
+
+c_int_test <- Center_test %>%
+  group_by(Year) %>%
+  mutate(pk_cut <- cut(Pk,4,labels=c("1","2","3","4"))) %>%
+  mutate(ws_cut <- cut(WS,4,labels=c("4","3","2","1"))) %>%
+  mutate(age_cut <- ifelse(Age>21,1,0))
+names(c_int_test)[47] <- c("pk_cut")
+names(c_int_test)[48] <- c("win_cut")
+names(c_int_test)[49] <- c("age_cut")
+```
+
+```{r}
+#ramdom forest 
+library(randomForest)
+rf.fit <- randomForest(win_cut ~ c_int_train$NCAA__3ptapg + c_int_train$NCAA__3ptpg + c_int_train$NCAA_fgapg + c_int_train$NCAA_fgpct + c_int_train$NCAA_fgpg + c_int_train$NCAA_ft + c_int_train$NCAA_ftapg + c_int_train$NCAA_ftpg + c_int_train$NCAA_games + c_int_train$NCAA_ppg, data = c_int_train, mtry = sqrt(10), importance = T)
+importance(rf.fit)
+rf.fit
+
+```
+
+```{r}
+# change height from inches to centimeter
+library(tidyr)
+train <- rbind(f_int_train,c_int_train,g_int_train)
+test <- rbind(f_int_test,c_int_test,g_int_test)
+library(stringr)
+test$height <- str_replace_all(test$height, "-","'")
+train$height <- str_replace_all(train$height, "-","'")
+
+library(data.table)
+height_list_test = fread(paste(sub('"', "", test$height), collapse="\n"), sep="'")[, 
+               as.matrix(.SD) %*% c(30.48, 2.54)][,1]
+
+height_list_train = fread(paste(sub('"', "", train$height), collapse="\n"), sep="'")[, 
+               as.matrix(.SD) %*% c(30.48, 2.54)][,1]
+
+i = 1
+while (i < 216){
+  test$height[i] = height_list_test[i]
+  i = i +1}
+  
+j = 1 
+while (j < 408){
+  train$height[j] = height_list_train[j]
+  j = j +1
+}
+
+```
+
+```{r}
+# filter NA
+train$WINGSPAN[is.na(train$WINGSPAN)] <-"0' 0''"
+train$WINGSPAN = substr(train$WINGSPAN,1,nchar(train$WINGSPAN)-2)
+
+wing_span_train = fread(paste(sub('"', "", train$WINGSPAN), collapse="\n"), sep="'")[, 
+               as.matrix(.SD) %*% c(30.48, 2.54)][,1]
+m = 1
+while (m < 408){
+  train$WINGSPAN[m] = wing_span_train[m]
+  m = m + 1
+}
+
+test$WINGSPAN[is.na(test$WINGSPAN)] <-"0' 0''"
+test$WINGSPAN = substr(test$WINGSPAN,1,nchar(test$WINGSPAN)-2)
+
+wing_span_test = fread(paste(sub('"', "", test$WINGSPAN), collapse="\n"), sep="'")[, 
+               as.matrix(.SD) %*% c(30.48, 2.54)][,1]
+t = 1
+while (t < 216){
+  test$WINGSPAN[t] = wing_span_test[t]
+  t = t + 1
+}
+
+train$WINGSPAN[train$WINGSPAN == 0] <-NA
+test$WINGSPAN[test$WINGSPAN == 0] <-NA
+```
+```{r}
+train$WINGSPAN[train$WINGSPAN == 0] <-NA
+test$WINGSPAN[test$WINGSPAN == 0] <-NA
+train$WINGSPAN <- as.numeric(train$WINGSPAN)
+```
+
+#Using missForest to impute missing values in wingspan
+```{r}
+library(VIM)
+set.seed(1)
+new <- kNN(train[,c(31,32)], k=3)
+plot(new$WINGSPAN,new$height)
+train$WINGSPAN <- new$WINGSPAN 
+```
